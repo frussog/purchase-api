@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:client-revamp-service-api="http://www.mulesoft.org/schema/mule/client-revamp-service-api" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:order="http://www.mulesoft.org/schema/mule/order" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  http://www.mulesoft.org/schema/mule/client-revamp-service-api http://www.mulesoft.org/schema/mule/client-revamp-service-api/current/mule-client-revamp-service-api.xsd http://www.mulesoft.org/schema/mule/order http://www.mulesoft.org/schema/mule/order/current/mule-order.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+    <http:listener-config name="customer-process-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8083" />
+    </http:listener-config>
+    <apikit:config name="customer-process-api-config" api="resource::f8150fb0-932d-4808-be99-3847b15fd4a0:customer-process-api:1.0.3:raml:zip:customer-process-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <order:config name="Order_Config" doc:name="Order Config" doc:id="9b61d854-6be7-41a1-8c00-e99137ed4b63" property_host="localhost" property_port="8084" property_protocol="HTTP" property_basePath="/api" />
+    <client-revamp-service-api:config name="Client_revamp_service_api_Config" doc:name="Client-revamp-service-api Config" doc:id="47a242f4-15e0-4cec-acc1-3d927279273b" property_host="localhost" property_port="8086" property_protocol="HTTP" property_basePath="/api" />
+    <api-gateway:autodiscovery apiId="16978150" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="15900b4e-4cc4-476e-bf35-6d6ee087f235" flowRef="customer-process-api-main" />
+    <flow name="customer-process-api-main">
+        <http:listener config-ref="customer-process-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="customer-process-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="customer-process-api-console">
+        <http:listener config-ref="customer-process-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="customer-process-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="post:\purchase:application\json:customer-process-api-config">
+        <set-variable value="#[payload]" doc:name="Set RequestIn" doc:id="1b3fdf87-e4d7-456e-93b6-a055043f09e5" variableName="RequestIn" />
+        <client-revamp-service-api:get-balance-by-id doc:name="Get balance by id" doc:id="18fbb53f-936d-4b04-bd11-ccd84eebc263" config-ref="Client_revamp_service_api_Config" id="#[payload.clientId]" />
+        <set-variable value="#[payload]" doc:name="Available Balance" doc:id="2c1f81a1-5e34-4137-b7de-7c1161cc6d80" variableName="AvailableBalance" />
+        <choice doc:name="Choice" doc:id="22187737-43e9-498e-91b4-b5ff2abfeaf9">
+            <when expression="#[vars.Availablebalance == vars.Availablebalance]">
+                <ee:transform doc:name="Map Create Tshirt fields" doc:id="a6f2c5d5-6184-4525-b6b3-0192ff07ab95">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+     size : vars.RequestIn.size,
+     email: vars.RequestIn.email,
+     name : vars.RequestIn.name,
+     address1 : vars.RequestIn.address1,
+     address2 : vars.RequestIn.address1,
+     city : vars.RequestIn.city,
+     stateOrProvince : "BA",
+     postalCode : "PC",
+     country: "AR"
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                <order:create-ordertshirt doc:name="Create Tshirt Order" doc:id="43f292b1-dcb1-4cbb-ac46-a42a4dfe5fd9" config-ref="Order_Config" />
+                <ee:transform doc:name="Map response" doc:id="2516eab5-156b-4931-a9e1-17b7e7c9dab7">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Purchase completed successfully."
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <ee:transform doc:name="Map error response" doc:id="feb3165d-9429-4dfa-9bc6-51c81a2acf55">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Not enough funds."
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+</mule>
